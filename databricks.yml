@@ -1,0 +1,34 @@
+# Neo-Danube Data Forensics Unit · Databricks Asset Bundle
+#   databricks bundle validate
+#   databricks bundle deploy -t dev
+#   databricks bundle run dfu_investigation -t dev
+bundle:
+  name: neo-danube-dfu
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog that holds the unit's schemas
+    default: dfu
+  seed:
+    description: Scenario seed (same seed = same crime)
+    default: "2077"
+  difficulty:
+    description: street_kid | corpo | nomad | legend
+    default: corpo
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      catalog: dfu_dev
+  prod:
+    mode: production
+    variables:
+      catalog: dfu
+    permissions:
+      - group_name: dfu_detectives
+        level: CAN_MANAGE
