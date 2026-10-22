@@ -1,0 +1,47 @@
+resources:
+  jobs:
+    dfu_investigation:
+      name: "DFU · Halcyon ledger breach"
+      description: Generate a breach, investigate all four cases, grade against the sealed answer key.
+      tags:
+        project: neo-danube-dfu
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: seed
+          default: ${var.seed}
+        - name: difficulty
+          default: ${var.difficulty}
+      tasks:
+        - task_key: generate_breach
+          notebook_task:
+            notebook_path: ../notebooks/setup/01_generate_breach.py
+        - task_key: build_ledger
+          depends_on: [{task_key: generate_breach}]
+          notebook_task:
+            notebook_path: ../notebooks/setup/02_build_ledger.py
+        - task_key: case_01_shard_recovery
+          depends_on: [{task_key: generate_breach}]
+          notebook_task:
+            notebook_path: ../notebooks/cases/01_shard_recovery.py
+        - task_key: integrity_scans
+          depends_on: [{task_key: case_01_shard_recovery}]
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.dfu_integrity_scans.id}
+        - task_key: case_02_the_tamper
+          depends_on: [{task_key: build_ledger}, {task_key: case_01_shard_recovery}]
+          notebook_task:
+            notebook_path: ../notebooks/cases/02_the_tamper.py
+        - task_key: case_03_ghost_identities
+          depends_on: [{task_key: case_02_the_tamper}]
+          notebook_task:
+            notebook_path: ../notebooks/cases/03_ghost_identities.py
+        - task_key: case_04_the_trail
+          depends_on: [{task_key: case_03_ghost_identities}]
+          notebook_task:
+            notebook_path: ../notebooks/cases/04_the_trail.py
+        - task_key: case_closed
+          depends_on: [{task_key: case_04_the_trail}, {task_key: integrity_scans}]
+          notebook_task:
+            notebook_path: ../notebooks/cases/05_case_closed.py
+      # no cluster spec: tasks run on serverless compute

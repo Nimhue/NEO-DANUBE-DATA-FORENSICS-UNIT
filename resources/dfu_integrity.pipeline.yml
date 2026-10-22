@@ -1,0 +1,14 @@
+resources:
+  pipelines:
+    dfu_integrity_scans:
+      name: "DFU · integrity scans"
+      catalog: ${var.catalog}
+      schema: evidence_processed
+      serverless: true
+      photon: true
+      channel: CURRENT
+      configuration:
+        dfu.catalog: ${var.catalog}
+      libraries:
+        - file:
+            path: ../pipelines/integrity_scans.py

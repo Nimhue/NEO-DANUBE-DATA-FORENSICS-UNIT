@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neo-Danube Forensics Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Interactive walkthrough of the Neo-Danube Data Forensics Unit: a Databricks lakehouse where every pipeline is an investigation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single-column field manual. Sticky HUD nav, one section per case, each split into
+   briefing (left) and a live instrument (right) that stacks on phones. Committed dark world. */
+:root {
+  --void: #0A0A1F;      /* page */
+  --panel: #12122E;     /* instruments */
+  --panel-2: #1A1B3F;
+  --line: #2C2E5E;
+  --text: #E4E6FB;
+  --steel: #8A8FBA;     /* muted text */
+  --yellow: #FCEE0A;    /* primary: titles, the one thing to look at */
+  --cyan: #00F0FF;      /* data, recovered, honest */
+  --magenta: #FF2A6D;   /* tampered */
+  --red: #FF003C;       /* critical */
+  --violet: #9B6BFF;    /* salvaged */
+  --f-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --s-1: 0.75rem; --s-2: 0.875rem; --s-3: 1rem; --s-4: 1.25rem; --s-5: 1.75rem; --s-6: 2.6rem; --s-7: 3.6rem;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body {
+  margin: 0; background: var(--void); color: var(--text);
+  font: 400 var(--s-3)/1.6 var(--f-body);
+  background-image:
+    linear-gradient(rgba(0,240,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--void); }
+body::after { /* scanlines */
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 40;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px); mix-blend-mode: multiply;
+}
+a { color: var(--cyan); }
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h2 { font-size: clamp(1.8rem, 4vw, var(--s-6)); line-height: 1.05; color: var(--yellow); text-transform: uppercase; }
+h3 { font-size: var(--s-4); color: var(--text); }
+p { margin: 0; max-width: 65ch; }
+code, .mono { font-family: var(--f-mono); font-size: .88em; }
+.eyebrow { font: 600 var(--s-1)/1 var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--steel); }
+
+/* ---------- HUD nav */
+.hud { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(10,10,31,.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.hud .wrap { display: flex; align-items: center; gap: 18px; padding-block: 10px; }
+.brand { font: 700 var(--s-2)/1 var(--f-display); letter-spacing: .14em; color: var(--yellow); white-space: nowrap; text-decoration: none; }
+.brand span { color: var(--steel); }
+.nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.nav a { font: 600 var(--s-1)/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--steel); text-decoration: none; padding: 8px 10px; border: 1px solid transparent; white-space: nowrap; }
+.nav a:hover, .nav a.on { color: var(--text); border-color: var(--line); background: var(--panel); }
+.nav a.on { border-bottom-color: var(--yellow); }
+.seed { font: 600 var(--s-1)/1 var(--f-mono); color: var(--cyan); border: 1px solid var(--line); padding: 7px 9px; white-space: nowrap; }
+@media (max-width: 720px) { .seed { display: none; } }
+
+/* ---------- hero */
+.hero { padding-block: 56px 40px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: start; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+.hero h1 { font-size: clamp(2.4rem, 6.4vw, 5.2rem); line-height: .92; text-transform: uppercase; }
+.hero h1 .y { color: var(--yellow); display: block; }
+.hero h1 .glitch { position: relative; display: inline-block; }
+.hero h1 .glitch::after { content: attr(data-t); position: absolute; left: 3px; top: 0; color: var(--magenta); clip-path: inset(0 0 55% 0); opacity: 0; animation: glitch 7s steps(1) infinite; }
+@keyframes glitch { 0%, 91%, 100% { opacity: 0; transform: none; } 92% { opacity: .8; transform: translate(-5px, 1px); } 94% { opacity: .7; transform: translate(4px, -1px); } 96% { opacity: .6; transform: translate(-2px, 0); } 97% { opacity: 0; } }
+.lede { font-size: var(--s-4); color: var(--text); margin-top: 22px; line-height: 1.45; }
+.lede em { color: var(--cyan); font-style: normal; }
+.tagrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
+.tag { font: 500 var(--s-1)/1 var(--f-mono); padding: 6px 8px; border: 1px solid var(--line); color: var(--steel); }
+.terminal { background: #07071a; border: 1px solid var(--line); font: 400 var(--s-2)/1.65 var(--f-mono); padding: 16px 18px; position: relative; min-width: 0; }
+.terminal::before { content: "DFU://TERMINAL · INCIDENT HAL-2077"; display: block; font-size: var(--s-1); color: var(--steel); letter-spacing: .14em; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.terminal div { white-space: pre-wrap; overflow-wrap: anywhere; }
+.t-ok { color: var(--cyan); } .t-warn { color: var(--yellow); } .t-bad { color: var(--magenta); } .t-dim { color: var(--steel); }
+.cursor { display: inline-block; width: .6em; height: 1em; background: var(--yellow); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---------- corners (HUD brackets) */
+.frame { position: relative; }
+.frame::before, .frame::after { content: ""; position: absolute; width: 14px; height: 14px; border-color: var(--yellow); border-style: solid; pointer-events: none; }
+.frame::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.frame::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+/* ---------- case board */
+.board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding-block: 8px 56px; }
+@media (max-width: 900px) { .board { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .board { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); padding: 16px; display: grid; gap: 10px; align-content: start; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+.card:hover { border-color: var(--yellow); transform: translateY(-2px); }
+.card .num { font: 700 var(--s-1)/1 var(--f-mono); letter-spacing: .16em; color: var(--steel); display: flex; justify-content: space-between; }
+.card .num b { color: var(--card-c, var(--cyan)); font-weight: 600; }
+.card h3 { font-size: var(--s-4); line-height: 1.1; }
+.card .q { color: var(--steel); font-size: var(--s-2); font-style: italic; }
+.card .meter { height: 4px; background: var(--line); }
+.card .meter i { display: block; height: 100%; background: var(--card-c, var(--cyan)); }
+.card .feat { font: 400 var(--s-1)/1.5 var(--f-mono); color: var(--steel); }
+
+/* ---------- sections */
+section.case { border-top: 1px solid var(--line); padding-block: 64px; scroll-margin-top: 56px; }
+.case-head { display: grid; gap: 12px; margin-bottom: 32px; }
+.case-head .eyebrow b { color: var(--case-c, var(--yellow)); }
+.case-head .quote { color: var(--steel); font-style: italic; font-size: var(--s-4); max-width: 60ch; border-left: 2px solid var(--case-c, var(--yellow)); padding-left: 14px; }
+.split { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
+@media (max-width: 960px) { .split { grid-template-columns: 1fr; } }
+.brief { display: grid; gap: 18px; min-width: 0; }
+.brief p { color: #c9cbe8; }
+.learn { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.learn li { position: relative; padding-left: 22px; font-size: var(--s-2); color: var(--text); }
+.learn li::before { content: "▸"; position: absolute; left: 0; top: 0; color: var(--case-c, var(--yellow)); font-family: var(--f-mono); }
+.learn li code { color: var(--cyan); }
+.instrument { background: var(--panel); border: 1px solid var(--line); padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.inst-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.inst-title .eyebrow { color: var(--case-c, var(--yellow)); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, .btn { font: 600 var(--s-1)/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; background: transparent; color: var(--text); border: 1px solid var(--line); padding: 9px 12px; cursor: pointer; }
+button:hover { border-color: var(--case-c, var(--yellow)); color: var(--case-c, var(--yellow)); }
+button.primary { background: var(--case-c, var(--yellow)); color: var(--void); border-color: var(--case-c, var(--yellow)); }
+button.primary:hover { filter: brightness(1.1); color: var(--void); }
+button[aria-pressed="true"] { border-color: var(--case-c, var(--yellow)); color: var(--case-c, var(--yellow)); background: var(--panel-2); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.stats.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 560px) { .stats.five { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.stats.five .stat b { font-size: var(--s-4); }
+.stat { border: 1px solid var(--line); padding: 10px 12px; background: rgba(0,0,0,.15); }
+.stat b { display: block; font: 600 var(--s-5)/1 var(--f-display); font-variant-numeric: tabular-nums; color: var(--text); }
+.stat span { font: 500 var(--s-1)/1.3 var(--f-mono); color: var(--steel); letter-spacing: .06em; text-transform: uppercase; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font: 500 var(--s-1)/1 var(--f-mono); color: var(--steel); }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+input[type=range] { accent-color: var(--case-c, var(--yellow)); width: 100%; }
+.range-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; font: 500 var(--s-1)/1 var(--f-mono); color: var(--steel); }
+.range-row output { color: var(--case-c, var(--yellow)); font-weight: 600; min-width: 4ch; text-align: right; }
+
+/* code */
+.code { background: #07071a; border: 1px solid var(--line); overflow-x: auto; }
+.code-tabs { display: flex; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.code-tabs button { border: 0; border-right: 1px solid var(--line); padding: 9px 12px; color: var(--steel); }
+.code-tabs button[aria-selected="true"] { color: var(--yellow); background: var(--panel); }
+pre { margin: 0; padding: 14px 16px; font: 400 .8rem/1.6 var(--f-mono); color: #d6d8f5; white-space: pre; }
+pre .c { color: #6b7099; } pre .k { color: var(--magenta); } pre .s { color: #ffd36b; } pre .f { color: var(--cyan); }
+
+/* quiz */
+.quiz { border: 1px dashed var(--line); padding: 16px; display: grid; gap: 10px; }
+.quiz .opts { display: grid; gap: 6px; }
+.quiz .opts button { text-align: left; text-transform: none; letter-spacing: 0; font: 500 var(--s-2)/1.4 var(--f-body); padding: 10px 12px; }
+.quiz .opts button.right { border-color: var(--cyan); color: var(--cyan); }
+.quiz .opts button.wrong { border-color: var(--magenta); color: var(--magenta); }
+.quiz .why { font-size: var(--s-2); color: var(--steel); }
+
+/* ---------- case 01: shard grid */
+.shard { display: grid; gap: 6px; }
+.frag { display: grid; grid-template-columns: 112px 1fr 48px; gap: 10px; align-items: center; }
+.frag .fname { font: 500 .7rem/1 var(--f-mono); color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frag .cells { display: flex; flex-wrap: wrap; gap: 2px; }
+.frag .pct { font: 600 .72rem/1 var(--f-mono); color: var(--steel); text-align: right; font-variant-numeric: tabular-nums; }
+.cell { width: 7px; height: 12px; background: var(--magenta); opacity: .85; border: 0; padding: 0; cursor: pointer; transition: background .35s, opacity .35s; }
+.cell.raw { background: repeating-linear-gradient(0deg, var(--magenta) 0 2px, #5a1030 2px 4px); }
+.cell[data-t=CLEAN].done { background: var(--cyan); opacity: .55; }
+.cell[data-t=RESCUED].done { background: var(--cyan); opacity: 1; }
+.cell[data-t=REPAIRED].done { background: var(--yellow); }
+.cell[data-t=SALVAGED].done { background: var(--violet); }
+.cell[data-t=LOST].done { background: var(--red); opacity: 1; }
+.cell.dim { opacity: .12 !important; }
+.cell:hover, .cell.sel { outline: 1px solid #fff; }
+@media (max-width: 520px) { .frag { grid-template-columns: 70px 1fr 40px; } .cell { width: 5px; height: 10px; } }
+.evidence { background: #07071a; border: 1px solid var(--line); padding: 12px 14px; font: 400 .78rem/1.55 var(--f-mono); display: grid; gap: 8px; min-height: 120px; }
+.evidence .lbl { color: var(--steel); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; }
+.evidence .raw { color: var(--magenta); overflow-wrap: anywhere; }
+.evidence .fix { color: var(--cyan); }
+.gauge { height: 10px; background: var(--line); position: relative; }
+.gauge i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--cyan), var(--yellow)); transition: width 1.2s; }
+
+/* ---------- case 02 */
+.history { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: 110px; align-items: end; border-bottom: 1px solid var(--line); }
+.history button { padding: 0; border: 0; background: var(--steel); opacity: .45; width: 100%; min-height: 4px; position: relative; }
+.history button.hot { background: var(--magenta); opacity: .95; }
+.history button.warm { background: var(--yellow); opacity: .7; }
+.history button.cur { outline: 2px solid var(--text); outline-offset: 1px; }
+.history button.after { opacity: .18; }
+.ledger-wrap { overflow-x: auto; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font: 400 .76rem/1.4 var(--f-mono); font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--steel); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: .66rem; background: var(--panel-2); position: sticky; top: 0; }
+td.num { text-align: right; }
+tr.gone td { color: #555a85; text-decoration: line-through; }
+td.chg-bad { color: var(--magenta); background: rgba(255,42,109,.1); font-weight: 600; }
+td.chg-ok { color: var(--cyan); }
+td.mark { border-left: 3px solid transparent; } td.mark.bad { border-left-color: var(--magenta); } td.mark.ok { border-left-color: var(--cyan); }
+.pill { display: inline-block; font: 600 .64rem/1 var(--f-mono); padding: 3px 6px; border: 1px solid currentColor; letter-spacing: .06em; }
+.pill.bad { color: var(--magenta); } .pill.ok { color: var(--cyan); } .pill.weak { color: var(--yellow); }
+.commitbox { font: 400 .78rem/1.5 var(--f-mono); color: var(--steel); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.commitbox b { color: var(--text); font-weight: 600; }
+.vs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 560px) { .vs { grid-template-columns: 1fr; } }
+.vs > div { border: 1px solid var(--line); padding: 14px; display: grid; gap: 8px; align-content: start; }
+.vs h4 { margin: 0; font: 700 var(--s-2)/1.2 var(--f-display); letter-spacing: .06em; text-transform: uppercase; }
+.vs .big { font: 600 var(--s-5)/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.vs p { font-size: var(--s-2); color: var(--steel); }
+
+/* ---------- case 03 / 04 canvases */
+.canvas-box { position: relative; border: 1px solid var(--line); background: #07071a; height: 440px; }
+.canvas-box canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.tooltip { position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--line); padding: 8px 10px; font: 400 .72rem/1.5 var(--f-mono); color: var(--text); max-width: 260px; z-index: 2; }
+.dossier { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.dossier .d { border: 1px solid var(--line); background: var(--panel); padding: 16px; display: grid; gap: 8px; align-content: start; }
+.dossier .d.prime { border-color: var(--yellow); }
+.dossier .role { font: 700 .7rem/1 var(--f-mono); letter-spacing: .16em; }
+.dossier .d.prime .role { color: var(--yellow); } .dossier .d .role { color: var(--magenta); }
+.dossier h3 { font-size: var(--s-5); }
+.dossier dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font: 400 .76rem/1.5 var(--f-mono); }
+.dossier dt { color: var(--steel); } .dossier dd { margin: 0; overflow-wrap: anywhere; }
+.trail-svg { width: 100%; height: auto; display: block; }
+
+/* ---------- clearance */
+.clearance-toggle { display: inline-flex; border: 1px solid var(--line); }
+.clearance-toggle button { border: 0; }
+.redacted { background: var(--text); color: transparent; user-select: none; border-radius: 1px; }
+
+/* ---------- closed */
+.badges { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.badge { border: 1px solid var(--line); padding: 14px; display: grid; gap: 6px; background: var(--panel); }
+.badge b { font: 700 var(--s-2)/1.2 var(--f-display); letter-spacing: .08em; color: var(--yellow); }
+.badge span { font-size: var(--s-1); color: var(--steel); font-family: var(--f-mono); }
+.verdict { border: 1px solid var(--yellow); padding: 22px; display: grid; gap: 10px; background: linear-gradient(135deg, rgba(252,238,10,.06), transparent 60%); }
+.verdict .stamp { font: 700 var(--s-6)/1 var(--f-display); color: var(--yellow); letter-spacing: .04em; }
+.run { display: grid; gap: 10px; }
+footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var(--steel); font-size: var(--s-2); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: stretch; margin-top: 8px; }
+.arch > div { border: 1px solid var(--line); padding: 12px; background: var(--panel); display: grid; gap: 6px; align-content: start; }
+.arch b { font: 700 var(--s-2)/1.1 var(--f-mono); letter-spacing: .02em; overflow-wrap: anywhere; }
+.arch span { font: 400 .72rem/1.5 var(--f-mono); color: var(--steel); }
+.arch .lyr { font: 600 .64rem/1 var(--f-mono); letter-spacing: .14em; }
+</style>
+</head>
+<body>
+
+<header class="hud">
+  <div class="wrap">
+    <a class="brand" href="#top">DFU<span> // NEO-DANUBE</span></a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#briefing">Briefing</a>
+      <a href="#case01">01 Shard</a>
+      <a href="#case02">02 Tamper</a>
+      <a href="#case03">03 Ghosts</a>
+      <a href="#case04">04 Trail</a>
+      <a href="#clearance">Clearance</a>
+      <a href="#closed">Case closed</a>
+    </nav>
+    <span class="seed" id="seedchip">SEED ----</span>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div>
+      <div class="eyebrow">Databricks portfolio project · interactive field manual</div>
+      <h1 style="margin-top:14px"><span class="glitch" data-t="Every pipeline">Every pipeline</span> <span class="y">is an investigation.</span></h1>
+      <p class="lede">Neo-Danube, March 2077. Someone inside <em>Halcyon Dynamics</em> stole the central ledger, rewrote two weeks of its history and vanished behind a dozen fake identities. This page walks through how the Data Forensics Unit catches them, one lakehouse technique at a time.</p>
+      <div class="tagrow">
+        <span class="tag">Auto Loader</span><span class="tag">_rescued_data</span><span class="tag">Delta time travel</span><span class="tag">Change Data Feed</span><span class="tag">Entity resolution</span><span class="tag">Unity Catalog</span><span class="tag">Lakeflow expectations</span><span class="tag">Asset Bundles</span>
+      </div>
+    </div>
+    <div class="terminal frame" id="boot" aria-label="Incident terminal log"></div>
+  </div>
+
+  <div class="wrap board" id="board"></div>
+
+  <!-- ============ BRIEFING -->
+  <section class="case" id="briefing" style="--case-c: var(--yellow)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Briefing · <b>how the unit is built</b></div>
+        <h2>Five schemas, four cases, one sealed answer</h2>
+        <p class="quote">Preserve before you analyse. Record every repair. Never accuse on one weak signal. Undo surgically.</p>
+      </div>
+      <div class="split">
+        <div class="brief">
+          <p>A seeded generator builds a fresh crime scene in a Unity Catalog volume: damaged shard files, a ledger with 14 days of commits, identity records from four systems that don't agree, and an answer key sealed before the investigation starts.</p>
+          <p>Each case is a Databricks notebook backed by tested Spark functions in <code>src/</code>. The last job task opens the sealed key and <strong>fails the run</strong> if the unit got the answer wrong. The tests grade the detective, not just the code.</p>
+          <ul class="learn">
+            <li>Same seed, same crime. New seed, new crime, still solvable.</li>
+            <li>Four difficulty levels: <code>street_kid</code>, <code>corpo</code>, <code>nomad</code>, <code>legend</code>.</li>
+            <li>Runs as an Asset Bundle job on serverless, or notebook by notebook in Free Edition.</li>
+          </ul>
+        </div>
+        <div class="instrument frame">
+          <div class="inst-title"><span class="eyebrow">Medallion layout</span><span class="eyebrow" style="color:var(--steel)">catalog dfu</span></div>
+          <div class="arch">
+            <div><span class="lyr" style="color:var(--steel)">LANDING</span><b>evidence_raw</b><span>volume with shard fragments, ledger ops, identity dumps · bronze tables</span></div>
+            <div><span class="lyr" style="color:var(--cyan)">SILVER</span><b>evidence_processed</b><span>recovered shard · live ledger (CDF on) · identity matches & clusters</span></div>
+            <div><span class="lyr" style="color:var(--yellow)">GOLD</span><b>case_findings</b><span>recovery report · tamper timeline · golden identities · suspects · trail</span></div>
+            <div><span class="lyr" style="color:var(--magenta)">HOLD</span><b>quarantine</b><span>lost records · inadmissible evidence with failed rules</span></div>
+            <div><span class="lyr" style="color:var(--steel)">OPS</span><b>ops</b><span>commit log · scoreboard · mask & filter functions</span></div>
+          </div>
+          <div class="stats five" id="manifestStats"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CASE 01 -->
+  <section class="case" id="case01" style="--case-c: var(--cyan)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Case 01 · <b>Shard recovery</b></div>
+        <h2>Ghost in the bytes</h2>
+        <p class="quote">The courier's shard holds the ledger as it was before anyone touched it. Our most honest witness, and it's badly damaged.</p>
+      </div>
+      <div class="split">
+        <div class="brief">
+          <p>The fragments arrive in three shapes: JSON from newer firmware that renamed fields, CSV with unquoted commas, and CSV from an old deck that writes latin-1. Some lines are truncated mid-record, some are pure static, and some records were sent twice.</p>
+          <p>The rule is simple: recover what you can, record <em>how</em> you recovered it, and never invent a value. Every record ends in one of five tiers.</p>
+          <ul class="learn">
+            <li>Auto Loader with an explicit schema and <code>trigger(availableNow=True)</code></li>
+            <li><code>_rescued_data</code> catches the renamed <code>amt</code> field and string amounts</li>
+            <li><code>columnNameOfCorruptRecord</code> keeps truncated lines for salvage</li>
+            <li><code>binaryFile</code> + <code>decode(content, 'ISO-8859-1')</code> for the legacy deck</li>
+            <li>Rebuilding misaligned CSV rows, deduplicating with a window</li>
+          </ul>
+          <div class="code" id="code01"></div>
+        </div>
+        <div class="instrument frame">
+          <div class="inst-title"><span class="eyebrow">Shard reconstructor</span><span class="eyebrow" style="color:var(--steel)" id="shardCount"></span></div>
+          <div class="controls">
+            <button class="primary" id="runRecovery" type="button">Run recovery</button>
+            <button id="resetRecovery" type="button">Reset</button>
+            <span class="legend" id="tierLegend"></span>
+          </div>
+          <div class="gauge" aria-hidden="true"><i id="gauge"></i></div>
+          <div class="stats five" id="tierStats"></div>
+          <div class="shard" id="shard"></div>
+          <div class="evidence" id="evidence01" aria-live="polite">
+            <span class="lbl">Evidence inspector</span>
+            <span style="color:var(--steel)">Run the recovery, then select any record to see the raw bytes and the repair applied to them.</span>
+          </div>
+        </div>
+      </div>
+      <div class="quiz" id="quiz01" style="margin-top:28px"></div>
+    </div>
+  </section>
+
+  <!-- ============ CASE 02 -->
+  <section class="case" id="case02" style="--case-c: var(--magenta)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Case 02 · <b>The tamper</b></div>
+        <h2>Someone rewrote history</h2>
+        <p class="quote">Every commit says "routine reconciliation". Delta Lake keeps the receipts anyway.</p>
+      </div>
+      <div class="split">
+        <div class="brief">
+          <p>Each bar below is one Delta commit to the ledger. Drag through versions and watch the sample transactions change. Honest edits turn cyan. Malicious ones flash magenta.</p>
+          <p>Change Data Feed gives a before and after image for every changed row. Every change is scored: strong evidence is worth 2 points, weak hints 1. A change is tampering at 2 points or more, because the night shift really does work at 1 a.m.</p>
+          <ul class="learn">
+            <li><code>DESCRIBE HISTORY</code>: commit-level metadata and operation metrics</li>
+            <li>Time travel with <code>VERSION AS OF</code></li>
+            <li><code>table_changes()</code>: <code>update_preimage</code> / <code>update_postimage</code> pairs</li>
+            <li>Commit-level attribution, since a delete row shows the victim's last editor</li>
+            <li><code>SHALLOW CLONE</code> as a sandbox, <code>RESTORE</code> vs a surgical <code>MERGE</code></li>
+          </ul>
+          <div class="code" id="code02"></div>
+        </div>
+        <div class="instrument frame">
+          <div class="inst-title"><span class="eyebrow">Time scrubber</span><span class="eyebrow" style="color:var(--steel)" id="verLabel"></span></div>
+          <div class="history" id="history" aria-label="Commit history"></div>
+          <input type="range" id="scrub" min="1" value="1" aria-label="Ledger version">
+          <div class="commitbox" id="commitbox"></div>
+          <div class="ledger-wrap"><table id="ledger"></table></div>
+          <div class="legend"><span><i style="background:var(--magenta)"></i>tampered value</span><span><i style="background:var(--cyan)"></i>honest change</span><span><i style="background:var(--yellow)"></i>commit with a weak flag only</span></div>
+        </div>
+      </div>
+
+      <div class="split" style="margin-top:28px">
+        <div class="instrument">
+          <div class="inst-title"><span class="eyebrow">The false-positive trap</span></div>
+          <p style="font-size:var(--s-2);color:var(--steel)">Move the conviction threshold. At 1 point, every honest night-shift settlement becomes "evidence".</p>
+          <div class="range-row"><span>threshold</span><input type="range" id="thr02" min="1" max="4" step="1" value="2" aria-label="Suspicion threshold"><output id="thr02o">2</output></div>
+          <div class="stats" id="thrStats"></div>
+        </div>
+        <div class="instrument">
+          <div class="inst-title"><span class="eyebrow">Undo the damage</span></div>
+          <div class="vs" id="restoreVs"></div>
+        </div>
+      </div>
+      <div class="quiz" id="quiz02" style="margin-top:28px"></div>
+    </div>
+  </section>
+
+  <!-- ============ CASE 03 -->
+  <section class="case" id="case03" style="--case-c: var(--yellow)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Case 03 · <b>Ghost identities</b></div>
+        <h2>Who's the real merc?</h2>
+        <p class="quote">The edits were signed by operator logins nobody in HR recognises. Four identity systems, one person wearing several faces.</p>
+      </div>
+      <div class="split">
+        <div class="brief">
+          <p>Every dot is an identity record. A line means two records scored above the match threshold. Records that connect, directly or through a chain, are one person. The ghost logins are ringed in yellow.</p>
+          <p>Drag the threshold. Too low and lookalikes (same surname, same district) merge into one person. Too high and the culprit's aliases fall apart.</p>
+          <ul class="learn">
+            <li>Normalize: lowercase, translate accents, sort name tokens</li>
+            <li>Blocking keys so you compare a few percent of pairs, not all of them</li>
+            <li>Weighted scoring with <code>levenshtein</code>; day/month-swapped DOBs; one-digit-off IDs</li>
+            <li>Connected components by label propagation, no GraphFrames needed</li>
+            <li>Golden records with survivorship rules (civil registry wins)</li>
+          </ul>
+          <div class="code" id="code03"></div>
+        </div>
+        <div class="instrument frame">
+          <div class="inst-title"><span class="eyebrow">Identity web</span><span class="eyebrow" style="color:var(--steel)">drag nodes · hover for records</span></div>
+          <div class="range-row"><span>match threshold</span><input type="range" id="thr03" min="0.40" max="0.90" step="0.01" value="0.60" aria-label="Match threshold"><output id="thr03o">0.60</output></div>
+          <div class="stats five" id="idStats"></div>
+          <div class="canvas-box" id="webBox"><canvas id="web" aria-label="Identity network graph"></canvas><div class="tooltip" id="webTip" hidden></div></div>
+          <div class="legend"><span><i style="background:var(--yellow)"></i>culprit's cluster</span><span><i style="background:var(--magenta)"></i>accomplices</span><span><i style="background:var(--cyan)"></i>everyone else</span><span><i style="border:2px solid var(--yellow);background:transparent"></i>ghost login</span></div>
+        </div>
+      </div>
+      <div class="quiz" id="quiz03" style="margin-top:28px"></div>
+    </div>
+  </section>
+
+  <!-- ============ CASE 04 -->
+  <section class="case" id="case04" style="--case-c: var(--cyan)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Case 04 · <b>The trail</b></div>
+        <h2>Follow the money</h2>
+        <p class="quote">We know what changed and who changed it. Last question: where did the eddies go?</p>
+      </div>
+      <div class="brief" style="margin-bottom:22px">
+        <p>Every finding becomes an edge: person → signed as → login → edited → transaction → paid to → account → owned by → person. Stored as a plain Delta edge table, it feeds this graph, a dashboard, or GraphFrames later. Hover a node to trace its path.</p>
+      </div>
+      <div class="instrument frame">
+        <div class="inst-title"><span class="eyebrow">Evidence graph</span><span class="eyebrow" style="color:var(--steel)" id="trailCount"></span></div>
+        <div style="overflow-x:auto"><svg class="trail-svg" id="trail" role="img" aria-label="Money trail from the culprit through logins, transactions and drop accounts to the accomplices"></svg></div>
+      </div>
+      <div class="dossier" id="dossier" style="margin-top:22px"></div>
+      <div class="quiz" id="quiz04" style="margin-top:28px"></div>
+    </div>
+  </section>
+
+  <!-- ============ CLEARANCE -->
+  <section class="case" id="clearance" style="--case-c: var(--violet)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Governance · <b>clearance levels</b></div>
+        <h2>Need to know</h2>
+        <p class="quote">Same table, same query, two different answers. Unity Catalog decides at read time.</p>
+      </div>
+      <div class="split">
+        <div class="brief">
+          <p>A <strong>column mask</strong> is a SQL function attached to a column; a <strong>row filter</strong> is one attached to a table. Unity Catalog applies them on every read, from every tool: notebooks, SQL warehouses, Power BI.</p>
+          <p>Rookies see redacted IDs and dates of birth, and the prime suspect's row simply isn't there. Detectives (members of <code>dfu_detectives</code>) see everything. Tags record the chain of custody; lineage shows the path back to the raw shard files.</p>
+          <div class="code" id="codeGov"></div>
+        </div>
+        <div class="instrument frame">
+          <div class="inst-title"><span class="eyebrow">SELECT … FROM case_findings.suspects</span>
+            <span class="clearance-toggle" role="group" aria-label="Clearance level">
+              <button type="button" id="asRookie" aria-pressed="true">Rookie</button>
+              <button type="button" id="asDetective" aria-pressed="false">Detective</button>
+            </span>
+          </div>
+          <div class="ledger-wrap"><table id="clearTable"></table></div>
+          <div class="ledger-wrap"><table id="clearIds"></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLOSED -->
+  <section class="case" id="closed" style="--case-c: var(--yellow)">
+    <div class="wrap">
+      <div class="case-head">
+        <div class="eyebrow">Case closed · <b>graded against the sealed key</b></div>
+        <h2>The verdict</h2>
+      </div>
+      <div class="split">
+        <div class="verdict frame" id="verdict"></div>
+        <div class="run">
+          <div class="badges" id="badges"></div>
+          <div class="code"><pre id="runCode"></pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Neo-Danube Data Forensics Unit · a Databricks portfolio project by Nim. All people, companies and places are fictional.</span>
+    <span class="mono" id="footSeed"></span>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(() => {
+const D = window.DFU_DATA;
+if (!D) { document.getElementById("boot").textContent = "data.js missing: run tools/export_site_data.py"; return; }
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.innerHTML = html; return e; };
+const fmt = n => Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+$("#seedchip").textContent = `SEED ${D.seed} · ${D.difficulty.toUpperCase()}`;
+$("#footSeed").textContent = `scenario seed ${D.seed} · ${D.difficulty}`;
+
+/* ---------------------------------------------------------- code highlighting */
+function hl(code) {
+  return esc(code)
+    .replace(/(#.*|(?:^|\s)-- .*)$/gm, '<span class="c">$1</span>')
+    .replace(/(&quot;[^&]*?&quot;|'[^'\n]*')/g, '<span class="s">$1</span>')
+    .replace(/\b(def|return|from|import|for|in|if|else|SELECT|FROM|WHERE|MERGE|INTO|USING|ON|WHEN|MATCHED|THEN|UPDATE|SET|INSERT|VALUES|DELETE|CREATE|OR|REPLACE|FUNCTION|RETURNS|RETURN|ALTER|TABLE|COLUMN|MASK|ROW|FILTER|CASE|END|AND|NOT|AS|VERSION|OF|RESTORE|TO|SHALLOW|CLONE)\b/g, '<span class="k">$1</span>')
+    .replace(/\b([a-z_]+)(?=\()/g, '<span class="f">$1</span>');
+}
+function codeTabs(el, tabs) {
+  const bar = h("div", { class: "code-tabs", role: "tablist" });
+  const pre = h("pre");
+  tabs.forEach(([name, code], i) => {
+    const b = h("button", { type: "button", role: "tab", "aria-selected": i === 0 }, esc(name));
+    b.onclick = () => { bar.querySelectorAll("button").forEach(x => x.setAttribute("aria-selected", x === b)); pre.innerHTML = hl(code); };
+    bar.append(b);
+  });
+  pre.innerHTML = hl(tabs[0][1]);
+  el.append(bar, pre);
+}
+
+/* ---------------------------------------------------------- boot terminal + board */
+const m = D.manifest, c01 = D.case01, c02 = D.case02, c03 = D.case03, c04 = D.case04;
+const tamperedCommits = c02.commits.filter(c => c.bad).length;
+const prime = c04.suspects.find(s => s.role === "PRIME SUSPECT");
+const bootLines = [
+  ["t-dim", `> mount /Volumes/dfu/evidence_raw/landing`],
+  ["t-ok", `  ${m.shard_files} shard fragments · ${m.shard_records} stolen records`],
+  ["t-ok", `  ledger v1: ${m.ledger_v0_rows} rows · ${m.commits} commits replayed`],
+  ["t-ok", `  ${m.identity_records} identity records · 4 source systems`],
+  ["t-warn", `> audit: balances do not reconcile`],
+  ["t-bad", `> WARNING: ${c02.tampered_ids.length} transactions altered across ${tamperedCommits} commits`],
+  ["t-bad", `> signed by unregistered logins: ${c03.ghost_ops.join(", ")}`],
+  ["t-dim", `> answer key sealed · investigation open`],
+];
+const boot = $("#boot");
+bootLines.forEach(([cls, txt]) => boot.append(h("div", { class: cls }, esc(txt))));
+boot.lastChild.insertAdjacentHTML("beforeend", ' <span class="cursor"></span>');
+
+const recPct = Math.round(100 * (1 - (c01.tiers.LOST || 0) / Object.values(c01.tiers).reduce((a, b) => a + b, 0)));
+const cases = [
+  ["01", "case01", "Shard recovery", "Ghost in the bytes", "var(--cyan)", recPct, `${recPct}% recovered`, "Auto Loader · rescued data · encodings"],
+  ["02", "case02", "The tamper", "Someone rewrote history", "var(--magenta)", 100, `${c02.tampered_ids.length} edits found`, "Time travel · CDF · surgical restore"],
+  ["03", "case03", "Ghost identities", "Who's the real merc?", "var(--yellow)", 100, `${prime ? prime.records : "?"} faces, 1 person`, "Blocking · fuzzy scoring · clustering"],
+  ["04", "case04", "The trail", "Follow the money", "var(--cyan)", 100, `${c04.suspects.length} suspects named`, "Edge tables · multi-hop joins"],
+];
+const board = $("#board");
+cases.forEach(([n, id, t, q, c, pct, status, feat]) => {
+  board.append(h("a", { class: "card", href: `#${id}`, style: `--card-c:${c}` },
+    `<div class="num">CASE ${n} <b>${esc(status)}</b></div><h3>${t}</h3><div class="q">"${q}"</div>
+     <div class="meter"><i style="width:${pct}%"></i></div><div class="feat">${feat}</div>`));
+});
+
+const ms = $("#manifestStats");
+[[m.people, "people in the city"], [m.identity_records, "identity records"], [m.ledger_v0_rows, "ledger rows"], [m.commits, "Delta commits"], [m.shard_records, "shard records"]]
+  .forEach(([v, l]) => ms.append(h("div", { class: "stat" }, `<b>${fmt(v)}</b><span>${l}</span>`)));
+
+/* nav highlight */
+const links = [...document.querySelectorAll(".nav a")];
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+}), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("section.case").forEach(s => io.observe(s));
+
+/* ---------------------------------------------------------- quizzes */
+function quiz(el, q, opts, right, why) {
+  el.innerHTML = `<div class="eyebrow" style="color:var(--case-c)">Check yourself</div><h3>${q}</h3>`;
+  const box = h("div", { class: "opts" }), w = h("p", { class: "why", hidden: "" }, why);
+  opts.forEach((o, i) => {
+    const b = h("button", { type: "button" }, esc(o));
+    b.onclick = () => { box.querySelectorAll("button").forEach((x, j) => { x.classList.toggle("right", j === right); x.classList.toggle("wrong", x === b && j !== right); }); w.hidden = false; };
+    box.append(b);
+  });
+  el.append(box, w);
+}
+
+/* ---------------------------------------------------------- CASE 01 */
+const TIERS = { CLEAN: "var(--cyan)", RESCUED: "var(--cyan)", REPAIRED: "var(--yellow)", SALVAGED: "var(--violet)", LOST: "var(--red)" };
+const TIER_DESC = {
+  CLEAN: "Parsed first time. Nothing to fix.",
+  RESCUED: "A drifted field came back out of _rescued_data.",
+  REPAIRED: "Values needed a recorded rule: string amount, timestamp dialect, realigned row or legacy encoding.",
+  SALVAGED: "The line was truncated. Only fields whose closing delimiter survived were kept.",
+  LOST: "Pure static. Nothing identifiable left, so it goes to quarantine.shard_lost.",
+};
+const REPAIR = {
+  clean: "parsed as-is",
+  schema_drift: "amt → amount, pulled from _rescued_data; x_sig ignored",
+  string_amount: "\"12,500.00 EDD\" → 12500.0 via regexp_replace + cast",
+  mixed_timestamp: "epoch seconds or dd/MM/yyyy HH:mm → TIMESTAMP",
+  broken_row: "13+ fields → first 8, memo = middle, last 3 (realigned_row)",
+  legacy_encoding: "binaryFile → decode(content, 'ISO-8859-1')",
+  truncated: "regex salvage of complete fields only; cut-off amount stays NULL",
+  garbage: "no txn_id recoverable → LOST, raw kept in quarantine",
+};
+const lg = $("#tierLegend");
+[["CLEAN", "clean"], ["RESCUED", "rescued"], ["REPAIRED", "repaired"], ["SALVAGED", "salvaged"], ["LOST", "lost"]].forEach(([t, l]) =>
+  lg.append(h("span", {}, `<i style="background:${TIERS[t]};${t === "CLEAN" ? "opacity:.55" : ""}"></i>${l}`)));
+const shard = $("#shard");
+let cellsAll = [];
+c01.fragments.forEach(f => {
+  const row = h("div", { class: "frag" });
+  const cells = h("div", { class: "cells" });
+  f.records.forEach(r => {
+    const b = h("button", { type: "button", class: "cell raw", "data-t": r.tier, "aria-label": `${r.id}, ${r.tier}` });
+    b._r = r; b._f = f;
+    b.onclick = () => inspect(b);
+    cells.append(b); cellsAll.push(b);
+  });
+  const lost = f.records.filter(r => r.tier === "LOST").length;
+  row.append(h("span", { class: "fname", title: f.file }, esc(f.file.replace("frag_", ""))), cells,
+             h("span", { class: "pct", "data-pct": Math.round(100 * (1 - lost / f.records.length)) }, "—"));
+  shard.append(row);
+});
+$("#shardCount").textContent = `${cellsAll.length} records · ${c01.fragments.length} fragments`;
+function tierStats(done) {
+  const ts = $("#tierStats"); ts.innerHTML = "";
+  ["CLEAN", "RESCUED", "REPAIRED", "SALVAGED", "LOST"].forEach(t =>
+    ts.append(h("div", { class: "stat" }, `<b style="color:${done ? TIERS[t] : "var(--steel)"}">${done ? fmt(c01.tiers[t] || 0) : "?"}</b><span>${t.toLowerCase()}</span>`)));
+}
+tierStats(false);
+let recovering = false;
+$("#runRecovery").onclick = () => {
+  if (recovering) return; recovering = true;
+  const order = [...cellsAll];
+  const step = reduced ? order.length : Math.ceil(order.length / 40);
+  let i = 0;
+  const tick = () => {
+    for (let k = 0; k < step && i < order.length; k++, i++) { order[i].classList.remove("raw"); order[i].classList.add("done"); }
+    if (i < order.length) requestAnimationFrame(tick);
+    else {
+      document.querySelectorAll(".frag .pct").forEach(p => p.textContent = p.dataset.pct + "%");
+      $("#gauge").style.width = recPct + "%"; tierStats(true); recovering = false;
+      inspect(cellsAll.find(c => c._r.issues.includes("schema_drift")) || cellsAll[0]);
+    }
+  };
+  tick();
+};
+$("#resetRecovery").onclick = () => {
+  cellsAll.forEach(c => { c.classList.add("raw"); c.classList.remove("done", "sel"); });
+  document.querySelectorAll(".frag .pct").forEach(p => p.textContent = "—");
+  $("#gauge").style.width = "0"; tierStats(false);
+  $("#evidence01").innerHTML = `<span class="lbl">Evidence inspector</span><span style="color:var(--steel)">Run the recovery, then select any record to see the raw bytes and the repair applied to them.</span>`;
+};
+function inspect(b) {
+  cellsAll.forEach(c => c.classList.toggle("sel", c === b));
+  const r = b._r, done = b.classList.contains("done");
+  const main = r.issues.find(i => i !== "duplicate" && i !== "clean") || "clean";
+  const sample = c01.samples[main] || c01.samples.clean;
+  $("#evidence01").innerHTML = `
+    <span class="lbl">${esc(r.id || "unknown")} · ${esc(b._f.file)} · issues: ${esc(r.issues.join(", "))}</span>
+    <span class="lbl">raw sample of this damage type</span>
+    <span class="raw">${esc(sample ? sample.raw : "")}</span>
+    ${done ? `<span class="lbl">repair</span><span class="fix">${r.issues.filter(i => REPAIR[i]).map(i => "▸ " + esc(REPAIR[i])).join("<br>")}</span>
+    <span class="lbl">tier</span><span style="color:${TIERS[r.tier]}">${r.tier} · ${esc(TIER_DESC[r.tier])}</span>${r.issues.includes("duplicate") ? `<span class="t-dim">also re-sent in frag_resend.jsonl; the dedup window keeps the best copy</span>` : ""}`
+    : `<span class="t-dim">Not processed yet. Run recovery.</span>`}`;
+}
+codeTabs($("#code01"), [
+  ["Auto Loader", `spark.readStream.format("cloudFiles")
+    .option("cloudFiles.format", "json")
+    .option("rescuedDataColumn", "_rescued_data")     # drifted / mistyped fields land here
+    .option("columnNameOfCorruptRecord", "_corrupt_record")
+    .schema(SHARD_SCHEMA)                              # amount DOUBLE on purpose
+    .load(f"{LANDING}/shard/json")
+    .writeStream
+    .option("checkpointLocation", f"{CHECKPOINTS}/shard_json")
+    .trigger(availableNow=True)                        # batch, with streaming bookkeeping
+    .toTable(f"{RAW}.shard_json_bronze")`],
+  ["Rescue", `amount = F.coalesce(
+    F.col("amount"),                                            # parsed first time
+    parse_amount(F.get_json_object("_rescued_data", "$.amount")),  # "12,500.00 EDD"
+    parse_amount(F.get_json_object("_rescued_data", "$.amt")))    # renamed field`],
+  ["Salvage", `# only trust a number if its delimiter survived:
+# "amount": 360  could have been 360.47 before the cut
+F.regexp_extract(raw, r'"(?:amount|amt)":\\s*"?([0-9.,]+)(?: EDD)?"?\\s*[,}]', 1)`],
+  ["Dedup", `w = Window.partitionBy("txn_id").orderBy(tier_rank.asc(), completeness.desc())
+best = df.withColumn("_rn", F.row_number().over(w)).where("_rn = 1")`],
+]);
+quiz($("#quiz01"), "Why is amount declared DOUBLE when STRING would never fail?",
+  ["Doubles take less storage", "A strict type makes bad values visible: they get rescued and repaired by a recorded rule", "Auto Loader can't read strings", "It makes the dedup faster"],
+  1, "With STRING, \"12,500.00 EDD\" would flow downstream as text and break a sum three tables later. With DOUBLE it lands in _rescued_data where a named rule fixes it, and the repair is recorded.");
+
+/* ---------------------------------------------------------- CASE 02 */
+const V = c02.versions;
+const scrub = $("#scrub"); scrub.max = V; scrub.value = V;
+const hist = $("#history");
+const maxN = Math.max(...c02.commits.map(c => c.n));
+const histBtns = c02.commits.map(c => {
+  const b = h("button", { type: "button", style: `height:${8 + 92 * c.n / maxN}%`, "aria-label": `version ${c.v}, ${c.n} changes`, title: `v${c.v} · day ${c.day} · ${c.n} changes` });
+  b.classList.toggle("hot", c.max >= c02.threshold);
+  b.classList.toggle("warm", c.max === 1);
+  b.onclick = () => { scrub.value = c.v; renderLedger(); };
+  hist.append(b); return b;
+});
+const scrubIds = Object.keys(c02.timeline);
+const tamperedSet = new Set(c02.tampered_ids);
+const stateAt = (tid, v) => { let s = null; for (const e of c02.timeline[tid]) if (e.v <= v) s = e; return s; };
+function renderLedger() {
+  const v = +scrub.value;
+  $("#verLabel").textContent = `version ${v} of ${V}`;
+  histBtns.forEach((b, i) => { b.classList.toggle("cur", c02.commits[i].v === v); b.classList.toggle("after", c02.commits[i].v > v); });
+  const c = c02.commits.find(x => x.v === v);
+  $("#commitbox").innerHTML = c ? `<span>commit <b>${c.id}</b></span><span>day <b>${c.day}</b> · ${c.date}</span><span>note <b>"${esc(c.note)}"</b></span>
+     <span>+${c.ins} ~${c.upd} −${c.del}</span>${c.max >= c02.threshold ? `<span class="pill bad">MALICIOUS · ${c.ops.join(", ")}</span>` : c.max === 1 ? `<span class="pill weak">WEAK FLAG ONLY</span>` : `<span class="pill ok">CLEAN</span>`}`
+    : `<span>version <b>1</b> · initial load from ledger_v0.jsonl</span>`;
+  let rows = `<tr><th>txn</th><th>amount</th><th>counterparty</th><th>created_at</th><th>status</th><th>modified_by</th></tr>`;
+  scrubIds.forEach(tid => {
+    const s0 = c02.timeline[tid][0], s = stateAt(tid, v), bad = tamperedSet.has(tid);
+    if (s.deleted) { rows += `<tr class="gone"><td class="mark bad">${tid}</td><td colspan="5">deleted while status was flagged · EVIDENCE_DELETE</td></tr>`; return; }
+    const cl = k => s[k] !== s0[k] ? (bad && k !== "status" && k !== "modified_by" ? "chg-bad" : "chg-ok") : "";
+    const changedBad = bad && (s.amount !== s0.amount || s.counterparty_account !== s0.counterparty_account || s.created_at !== s0.created_at);
+    const mk = changedBad ? "mark bad" : s.modified_at !== s0.modified_at ? "mark ok" : "mark";
+    rows += `<tr><td class="${mk}">${tid}</td><td class="num ${cl("amount")}">${fmt(s.amount)}</td><td class="${cl("counterparty_account")}">${s.counterparty_account}</td>
+      <td class="${cl("created_at")}">${s.created_at.replace("T", " ").slice(0, 16)}</td><td class="${cl("status")}">${s.status}</td>
+      <td class="${cl("modified_by")}">${s.modified_by}</td></tr>`;
+  });
+  $("#ledger").innerHTML = rows;
+}
+scrub.oninput = renderLedger; renderLedger();
+
+function thrStats() {
+  const t = +$("#thr02").value; $("#thr02o").value = t;
+  const caught = new Set(c02.flagged.filter(f => f.score >= t).map(f => f.txn));
+  const tp = [...caught].filter(x => tamperedSet.has(x)).length, fp = caught.size - tp, fn = tamperedSet.size - tp;
+  const innocent = new Set(c02.flagged.filter(f => f.score >= t && !tamperedSet.has(f.txn)).map(f => f.op).filter(Boolean));
+  $("#thrStats").innerHTML = [[tp, "tampered caught", "var(--cyan)"], [fn, "missed", fn ? "var(--red)" : "var(--steel)"],
+    [fp, "innocent accused", fp ? "var(--magenta)" : "var(--steel)"], [innocent.size, "honest operators blamed", innocent.size ? "var(--magenta)" : "var(--steel)"]]
+    .map(([v, l, col]) => `<div class="stat"><b style="color:${col}">${v}</b><span>${l}</span></div>`).join("");
+}
+$("#thr02").oninput = thrStats; thrStats();
+
+$("#restoreVs").innerHTML = `
+  <div><h4 style="color:var(--magenta)">RESTORE TO VERSION 1</h4><div class="big" style="color:var(--magenta)">−${fmt(c02.honest_inserts + c02.honest_updates)}</div>
+   <p>honest changes erased: ${fmt(c02.honest_inserts)} new transactions and ${fmt(c02.honest_updates)} settlements. Tried on a SHALLOW CLONE so the real ledger is safe.</p></div>
+  <div><h4 style="color:var(--cyan)">SURGICAL MERGE</h4><div class="big" style="color:var(--cyan)">${c02.tampered_ids.length} rows</div>
+   <p>restored from CDF pre-images taken just before each first malicious change. Deleted evidence is re-inserted. Nothing else moves.</p></div>`;
+codeTabs($("#code02"), [
+  ["CDF", `SELECT * FROM table_changes('dfu.evidence_processed.ledger', 2)
+-- _change_type: insert | update_preimage | update_postimage | delete
+-- _commit_version, _commit_timestamp`],
+  ["Scoring", `flags = F.array_compact(F.array(
+    F.when(upd & (F.hour("post_modified_at") < 5), F.lit("OFF_HOURS")),         # weak
+    F.when(upd & (F.col("post_amount") % 500 == 0), F.lit("ROUND_AMOUNT")),      # weak
+    F.when(upd & (F.col("post_created_at") != F.col("pre_created_at")), F.lit("BACKDATED")),
+    F.when(upd & (F.col("post_counterparty_account") != F.col("pre_counterparty_account")), F.lit("REDIRECT")),
+    F.when(is_delete & (F.col("pre_status") == "flagged"), F.lit("EVIDENCE_DELETE"))))
+suspicion = F.aggregate(flags, F.lit(0), lambda acc, f: acc + F.when(f.isin(*STRONG), 2).otherwise(1))`],
+  ["Time travel", `SELECT * FROM ledger VERSION AS OF 1 WHERE txn_id = 'TX-000412'
+UNION ALL
+SELECT * FROM ledger WHERE txn_id = 'TX-000412'`],
+  ["Restore", `CREATE OR REPLACE TABLE ledger_sandbox SHALLOW CLONE ledger;
+RESTORE TABLE ledger_sandbox TO VERSION AS OF 1;   -- the sledgehammer, on a clone
+
+MERGE INTO ledger t USING restore_src s ON t.txn_id = s.txn_id   -- the scalpel
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *`],
+]);
+quiz($("#quiz02"), "A CDF delete row shows modified_by = OP-114. Did OP-114 delete it?",
+  ["Yes, CDF always records the deleter", "No. A delete row is the victim's last state, so modified_by is whoever edited it before. Attribute deletes by commit.", "Only if the delete happened off-hours", "Yes, unless the table has row tracking off"],
+  1, "The pre-image of a delete is the row as it was. The unit attributes deletes at commit level: a commit is malicious if any change in it scores as tampering.");
+
+/* ---------------------------------------------------------- CASE 03 */
+const recs = c03.records, byId = Object.fromEntries(recs.map(r => [r.record_id, r]));
+const ghostSet = new Set(c03.ghost_ops);
+const primeIds = new Set(prime ? prime.record_ids : []);
+const accIds = new Set(c04.suspects.filter(s => s.role !== "PRIME SUSPECT").flatMap(s => s.record_ids));
+const box = $("#webBox"), cv = $("#web"), ctx = cv.getContext("2d"), tip = $("#webTip");
+let W = 0, H = 0, dpr = 1;
+const nodes = recs.map((r, i) => ({ r, x: Math.cos(i * 2.4) * (40 + i * 2.2), y: Math.sin(i * 2.4) * (40 + i * 2.2) * 0.75, vx: 0, vy: 0 }));
+const nIdx = Object.fromEntries(nodes.map((n, i) => [n.r.record_id, i]));
+let edges = [], comp = [];
+function clusterAt(t) {
+  const p = nodes.map((_, i) => i);
+  const f = i => { while (p[i] !== i) { p[i] = p[p[i]]; i = p[i]; } return i; };
+  edges = c03.pairs.filter(x => x.score >= t).map(x => [nIdx[x.a], nIdx[x.b], x]);
+  edges.forEach(([a, b]) => { const ra = f(a), rb = f(b); if (ra !== rb) p[ra] = rb; });
+  comp = nodes.map((_, i) => f(i));
+  const people = new Set(comp).size;
+  const ghostRoots = new Set(nodes.filter(n => ghostSet.has(n.r.operator_id)).map(n => comp[nIdx[n.r.record_id]]));
+  const primeRoots = new Set([...primeIds].map(id => comp[nIdx[id]]));
+  const mixed = [...new Set(comp)].filter(root => {
+    const ms = nodes.filter((_, i) => comp[i] === root).map(n => n.r.record_id);
+    const kinds = new Set(ms.map(id => primeIds.has(id) ? "p" : accIds.has(id) ? "a" + c04.suspects.findIndex(s => s.record_ids.includes(id)) : "o:" + id));
+    return ms.length > 1 && [...kinds].some(k => k.startsWith("o:")) && kinds.size > 1;
+  }).length;
+  $("#idStats").innerHTML = [[recs.length, "records"], [people, "people found"], [ghostRoots.size, ghostRoots.size === 1 ? "owner of ghost logins" : "ghost-login clusters", ghostRoots.size === 1 ? "var(--yellow)" : "var(--red)"],
+    [primeRoots.size === 1 ? "✔" : primeRoots.size, primeRoots.size === 1 ? "culprit in one piece" : "culprit fragments", primeRoots.size === 1 ? "var(--cyan)" : "var(--red)"],
+    [`${(100 * c03.candidate_pairs / c03.total_pairs).toFixed(1)}%`, "pairs compared after blocking"]]
+    .map(([v, l, col]) => `<div class="stat"><b style="color:${col || "var(--text)"}">${v}</b><span>${l}</span></div>`).join("");
+}
+function colorOf(i) {
+  const n = nodes[i];
+  const root = comp[i];
+  const inPrime = [...primeIds].some(id => comp[nIdx[id]] === root);
+  if (inPrime) return css("--yellow");
+  if ([...accIds].some(id => comp[nIdx[id]] === root)) return css("--magenta");
+  return css("--cyan");
+}
+function resize() {
+  const r = box.getBoundingClientRect(); dpr = window.devicePixelRatio || 1;
+  W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+let alpha = 1, hover = -1, drag = -1;
+function step() {
+  const k = 0.14;
+  for (const n of nodes) { n.vx -= n.x * 0.02 * alpha; n.vy -= n.y * 0.024 * alpha; }
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = nodes[i], b = nodes[j]; let dx = a.x - b.x, dy = a.y - b.y; let d2 = dx * dx + dy * dy || 1;
+    if (d2 > 14400) continue; const f = 150 / d2 * alpha; dx *= f; dy *= f; a.vx += dx; a.vy += dy; b.vx -= dx; b.vy -= dy;
+  }
+  for (const [a, b, p] of edges) {
+    const A = nodes[a], B = nodes[b], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1;
+    const f = (d - 20) * k * p.score * alpha; A.vx += dx / d * f; A.vy += dy / d * f; B.vx -= dx / d * f; B.vy -= dy / d * f;
+  }
+  nodes.forEach((n, i) => { if (i === drag) return; n.vx *= 0.82; n.vy *= 0.82; n.x += n.vx; n.y += n.vy;
+    n.x = Math.max(-W / 2 + 10, Math.min(W / 2 - 10, n.x)); n.y = Math.max(-H / 2 + 10, Math.min(H / 2 - 10, n.y)); });
+  alpha = Math.max(0.02, alpha * 0.985);
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H); ctx.save(); ctx.translate(W / 2, H / 2);
+  for (const [a, b, p] of edges) {
+    const hi = hover === a || hover === b;
+    ctx.strokeStyle = hi ? css("--text") : `rgba(138,143,186,${0.2 + p.score * 0.5})`; ctx.lineWidth = hi ? 1.6 : 1;
+    ctx.beginPath(); ctx.moveTo(nodes[a].x, nodes[a].y); ctx.lineTo(nodes[b].x, nodes[b].y); ctx.stroke();
+  }
+  nodes.forEach((n, i) => {
+    const r = n.r.source_system === "CivReg" ? 6 : 4.5;
+    ctx.fillStyle = colorOf(i); ctx.globalAlpha = (primeIds.has(n.r.record_id) || accIds.has(n.r.record_id)) ? 1 : 0.7;
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    if (ghostSet.has(n.r.operator_id)) { ctx.strokeStyle = css("--yellow"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(n.x, n.y, r + 4, 0, 7); ctx.stroke(); }
+    if (i === hover) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(n.x, n.y, r + 2, 0, 7); ctx.stroke(); }
+  });
+  ctx.restore();
+}
+function loop() { step(); draw(); requestAnimationFrame(loop); }
+function pick(ev) {
+  const r = cv.getBoundingClientRect(), x = ev.clientX - r.left - W / 2, y = ev.clientY - r.top - H / 2;
+  let best = -1, bd = 196; nodes.forEach((n, i) => { const d = (n.x - x) ** 2 + (n.y - y) ** 2; if (d < bd) { bd = d; best = i; } });
+  return { i: best, x, y };
+}
+cv.addEventListener("pointermove", ev => {
+  const p = pick(ev);
+  if (drag >= 0) { nodes[drag].x = p.x; nodes[drag].y = p.y; alpha = Math.max(alpha, 0.3); }
+  hover = drag >= 0 ? drag : p.i;
+  if (hover >= 0) {
+    const r = nodes[hover].r, mates = nodes.filter((_, j) => comp[j] === comp[hover]).length;
+    tip.hidden = false; tip.style.left = Math.min(W - 270, Math.max(4, p.x + W / 2 + 12)) + "px"; tip.style.top = Math.max(4, p.y + H / 2 + 12) + "px";
+    tip.innerHTML = `<b>${esc(r.full_name)}</b><br>${r.record_id} · ${r.source_system}<br>dob ${esc(r.dob || "—")} · ${esc(r.citizen_id || "—")}<br>${esc(r.district)}${r.operator_id ? `<br>login <b style="color:${ghostSet.has(r.operator_id) ? "var(--yellow)" : "inherit"}">${r.operator_id}</b>` : ""}<br><span style="color:var(--steel)">cluster of ${mates}</span>`;
+  } else tip.hidden = true;
+});
+cv.addEventListener("pointerdown", ev => { const p = pick(ev); if (p.i >= 0) { drag = p.i; cv.setPointerCapture(ev.pointerId); } });
+cv.addEventListener("pointerup", () => { drag = -1; });
+cv.addEventListener("pointerleave", () => { if (drag < 0) { hover = -1; tip.hidden = true; } });
+$("#thr03").oninput = e => { $("#thr03o").value = (+e.target.value).toFixed(2); clusterAt(+e.target.value); alpha = 0.8; };
+new ResizeObserver(resize).observe(box); resize(); clusterAt(c03.threshold);
+for (let i = 0; i < 260; i++) step();
+loop();
+codeTabs($("#code03"), [
+  ["Normalize", `name = F.translate(F.lower("full_name"), ACCENTED, PLAIN)
+tokens = F.split(F.regexp_replace(name, r"[^a-z\\s]", " "), r"\\s+")
+name_norm = F.array_join(F.array_sort(tokens), " ")   # "Kovács, Mira" == "MIRA KOVACS"`],
+  ["Blocking", `keys = F.concat(
+    F.transform(name_tokens, lambda t: F.concat(F.lit("sx:"), F.soundex(t))),
+    F.array(F.concat(F.lit("dob:"), "dob"), F.concat(F.lit("dob:"), "dob_swapped"),
+            F.concat(F.lit("cid:"), F.substring("citizen_id", 1, 7))))
+pairs = a.join(b, (a.block_key == b.block_key) & (a.record_id < b.record_id)).distinct()`],
+  ["Score", `score = 0.40 * (1 - levenshtein(a_name, b_name) / greatest(len_a, len_b))
+      + 0.30 * dob_match        # 1.0 exact · 0.7 day/month swapped
+      + 0.30 * cid_match        # 1.0 exact · 0.8 one digit off
+      + 0.05 * same_district + 0.05 * handle_sim     # match at >= 0.60`],
+  ["Cluster", `labels = records.select("record_id", F.col("record_id").alias("cluster_id"))
+for _ in range(max_iter):                     # min-label propagation
+    neigh = edges.join(labels, ...).groupBy("a").agg(F.min("cluster_id"))
+    new = labels.join(neigh, ...).select(F.least("cluster_id", "n_label"))
+    if unchanged(new, labels): break
+    labels = new.localCheckpoint()            # keep the plan from growing`],
+]);
+quiz($("#quiz03"), "Why are name tokens sorted instead of detecting which one is the surname?",
+  ["Sorting is faster than parsing", "Sources disagree on order and punctuation. Sorting makes the comparison order-free without guessing.", "Soundex needs sorted input", "Unity Catalog requires it"],
+  1, "\"Kovács, Mira\", \"MIRA KOVACS\" and \"mira kovacs\" all normalize to \"kovacs mira\". No guessing, no culture-specific rules about which name comes first.");
+
+/* ---------------------------------------------------------- CASE 04 */
+(function trail() {
+  const E = c04.edges, svg = $("#trail");
+  const colOf = { signed_as: [0, 1], edited: [1, 2], paid_to: [2, 3], owned_by: [3, 4] };
+  const cols = [new Set(), new Set(), new Set(), new Set(), new Set()];
+  E.forEach(e => { const [a, b] = colOf[e.rel]; cols[a].add(e.s); cols[b].add(e.t); });
+  const lists = cols.map(s => [...s]);
+  lists[2].sort();
+  const rowH = 15, top = 40, Wd = 1000;
+  const Hd = Math.max(...lists.map(l => l.length)) * rowH + top + 24;
+  const xs = [170, 340, 500, 640, 790];
+  const pos = {};
+  lists.forEach((l, ci) => {
+    const avail = Hd - top - 24, sp = Math.min(46, avail / l.length), off = top + (avail - l.length * sp) / 2;
+    l.forEach((id, i) => pos[ci + ":" + id] = [xs[ci], off + i * sp + sp / 2]);
+  });
+  svg.setAttribute("viewBox", `0 0 ${Wd} ${Hd}`); svg.style.minWidth = "720px";
+  const heads = ["culprit", "logins", "transactions", "drop accounts", "beneficiaries"];
+  let out = heads.map((t, i) => `<text x="${xs[i]}" y="18" text-anchor="middle" fill="${css("--steel")}" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="2">${t.toUpperCase()}</text>`).join("");
+  const maxW = Math.max(...E.filter(e => e.rel === "paid_to").map(e => e.w));
+  E.forEach((e, k) => {
+    const [a, b] = colOf[e.rel], p = pos[a + ":" + e.s], q = pos[b + ":" + e.t];
+    if (!p || !q) return;
+    const mx = (p[0] + q[0]) / 2, w = e.rel === "paid_to" ? 1 + 4 * e.w / maxW : 1.2;
+    const col = e.rel === "paid_to" ? css("--magenta") : e.rel === "owned_by" ? css("--magenta") : css("--cyan");
+    out += `<path data-e="${k}" data-s="${esc(a + ":" + e.s)}" data-t="${esc(b + ":" + e.t)}" d="M${p[0]},${p[1]} C${mx},${p[1]} ${mx},${q[1]} ${q[0]},${q[1]}" fill="none" stroke="${col}" stroke-opacity=".45" stroke-width="${w}"/>`;
+  });
+  const sus = Object.fromEntries(c04.suspects.map(s => [s.name, s]));
+  lists.forEach((l, ci) => l.forEach(id => {
+    const [x, y] = pos[ci + ":" + id];
+    const isP = ci === 0 || ci === 4, isPrime = sus[id] && sus[id].role === "PRIME SUSPECT";
+    const fill = isPrime ? css("--yellow") : isP ? css("--magenta") : ci === 1 ? css("--yellow") : ci === 3 ? css("--magenta") : css("--cyan");
+    const anchor = ci === 0 || ci === 1 ? "end" : "start";
+    const lx = ci === 0 || ci === 1 ? x - 10 : x + 10;
+    const ly = y + 4;
+    const label = ci === 2 ? "" : `<text x="${lx}" y="${ly}" text-anchor="${anchor}" fill="${css("--text")}" font-family="${ci === 0 || ci === 4 ? "Chakra Petch, sans-serif" : "JetBrains Mono, monospace"}" font-size="${ci === 0 || ci === 4 ? 14 : 10}" font-weight="${isP ? 700 : 400}">${esc(id)}</text>`;
+    out += `<g class="tn" data-n="${esc(ci + ":" + id)}" style="cursor:pointer"><rect x="${x - 5}" y="${y - 5}" width="10" height="10" fill="${fill}" transform="rotate(45 ${x} ${y})"/>${label}<title>${esc(id)}</title></g>`;
+  }));
+  svg.innerHTML = out;
+  const paths = [...svg.querySelectorAll("path")];
+  const adj = {}; paths.forEach(p => { (adj[p.dataset.s] ||= []).push(p); (adj[p.dataset.t] ||= []).push(p); });
+  function trace(n) {
+    const seen = new Set(), stackF = [n], stackB = [n], hit = new Set();
+    while (stackF.length) { const x = stackF.pop(); (adj[x] || []).filter(p => p.dataset.s === x).forEach(p => { hit.add(p); if (!seen.has("f" + p.dataset.t)) { seen.add("f" + p.dataset.t); stackF.push(p.dataset.t); } }); }
+    while (stackB.length) { const x = stackB.pop(); (adj[x] || []).filter(p => p.dataset.t === x).forEach(p => { hit.add(p); if (!seen.has("b" + p.dataset.s)) { seen.add("b" + p.dataset.s); stackB.push(p.dataset.s); } }); }
+    paths.forEach(p => { p.setAttribute("stroke-opacity", hit.has(p) ? ".95" : ".07"); });
+  }
+  svg.querySelectorAll(".tn").forEach(g => { g.addEventListener("mouseenter", () => trace(g.dataset.n)); g.addEventListener("click", () => trace(g.dataset.n)); });
+  svg.addEventListener("mouseleave", () => paths.forEach(p => p.setAttribute("stroke-opacity", ".45")));
+  $("#trailCount").textContent = `${E.length} edges · ${lists[2].length} tampered transactions`;
+})();
+$("#dossier").innerHTML = c04.suspects.map(s => `
+  <div class="d ${s.role === "PRIME SUSPECT" ? "prime" : ""}">
+    <span class="role">${s.role}</span><h3>${esc(s.name)}</h3>
+    <dl>
+      <dt>records</dt><dd>${s.records} across ${new Set(s.record_ids.map(id => byId[id] && byId[id].source_system)).size} systems</dd>
+      <dt>aliases</dt><dd>${s.aliases.map(esc).join(" · ")}</dd>
+      ${s.logins.length ? `<dt>logins</dt><dd>${s.logins.join(", ")}</dd><dt>edits</dt><dd>${s.edits} tampered changes</dd>` : ""}
+      <dt>received</dt><dd>${fmt(s.eddies)} EDD</dd>
+      ${s.accounts.map(a => `<dt>account</dt><dd>${a.id} · opened ${a.opened}</dd>`).join("")}
+    </dl>
+  </div>`).join("");
+quiz($("#quiz04"), "Why store the evidence graph as a plain Delta edge table?",
+  ["Graphs can't be stored any other way", "It's queryable with SQL, governed by Unity Catalog, and can feed a dashboard or GraphFrames later", "It's required for ai_query", "Edge tables are faster than joins"],
+  1, "Two columns and a relationship type is the most portable graph format there is. Every downstream tool can read it, and lineage still traces it back to the raw shard.");
+
+/* ---------------------------------------------------------- CLEARANCE */
+let detective = false;
+function renderClear() {
+  $("#asRookie").setAttribute("aria-pressed", !detective); $("#asDetective").setAttribute("aria-pressed", detective);
+  const rows = c04.suspects.filter(s => detective || s.role !== "PRIME SUSPECT");
+  $("#clearTable").innerHTML = `<tr><th>role</th><th>canonical_name</th><th>tamper_edits</th><th>eddies_received</th></tr>` +
+    rows.map(s => `<tr><td>${s.role}</td><td>${esc(s.name)}</td><td class="num">${s.edits}</td><td class="num">${fmt(s.eddies)}</td></tr>`).join("") +
+    (detective ? "" : `<tr><td colspan="4" style="color:var(--steel)">1 row hidden by ROW FILTER ops.need_to_know</td></tr>`);
+  const ids = (prime ? prime.record_ids : []).slice(0, 5).map(id => byId[id]);
+  $("#clearIds").innerHTML = `<tr><th>record_id</th><th>source</th><th>full_name</th><th>dob</th><th>citizen_id</th></tr>` +
+    ids.map(r => `<tr><td>${r.record_id}</td><td>${r.source_system}</td><td>${esc(r.full_name)}</td>
+      <td>${detective ? esc(r.dob || "—") : r.dob ? r.dob.slice(0, 4) + "-••-••" : "—"}</td>
+      <td>${detective ? esc(r.citizen_id || "—") : '<span class="pill weak">REDACTED</span>'}</td></tr>`).join("");
+}
+$("#asRookie").onclick = () => { detective = false; renderClear(); };
+$("#asDetective").onclick = () => { detective = true; renderClear(); };
+renderClear();
+codeTabs($("#codeGov"), [
+  ["Column mask", `CREATE OR REPLACE FUNCTION ops.mask_pii(value STRING)
+  RETURNS STRING
+  RETURN CASE WHEN is_account_group_member('dfu_detectives') THEN value ELSE '[REDACTED]' END;
+
+ALTER TABLE evidence_processed.identity_records
+  ALTER COLUMN citizen_id SET MASK ops.mask_pii;`],
+  ["Row filter", `CREATE OR REPLACE FUNCTION ops.need_to_know(role STRING)
+  RETURNS BOOLEAN
+  RETURN is_account_group_member('dfu_detectives') OR role <> 'PRIME SUSPECT';
+
+ALTER TABLE case_findings.suspects SET ROW FILTER ops.need_to_know ON (role);`],
+  ["Tags", `ALTER TABLE evidence_processed.ledger
+  SET TAGS ('case_id' = 'HAL-2077-02', 'evidence_class' = 'crime_scene');`],
+  ["Integrity", `@dlt.table(comment="Evidence that passed every admissibility rule")
+@dlt.expect_all_or_drop({"valid_txn_id": "txn_id RLIKE '^TX-[0-9]{6}$'",
+                         "has_counterparty": "counterparty_account IS NOT NULL"})
+@dlt.expect("positive_amount", "amount > 0")
+def certified_evidence(): ...`],
+]);
+
+/* ---------------------------------------------------------- CLOSED */
+const acc = c04.suspects.filter(s => s.role !== "PRIME SUSPECT");
+$("#verdict").innerHTML = `
+  <div class="eyebrow">incident HAL-2077 · seed ${D.seed} · ${D.difficulty}</div>
+  <div class="stamp">CASE CLOSED</div>
+  <p><strong style="color:var(--yellow)">${esc(prime ? prime.name : D.culprit)}</strong>, a Halcyon operator, signed ${prime ? prime.edits : "?"} malicious edits through ${prime ? prime.logins.length : "?"} ghost logins, hidden behind ${prime ? prime.records : "?"} identity records.</p>
+  <p>The redirected money landed in accounts held under aliases by ${acc.map(a => `<strong>${esc(a.name)}</strong>`).join(" and ")}, opened days before the breach.</p>
+  <p style="color:var(--steel)">All ${c02.tampered_ids.length} tampered transactions found, zero innocents accused, ledger surgically restored. The job's final task checks every one of these claims against the sealed answer key.</p>`;
+const badges = [["SHARD WHISPERER", "≥ 98.5% of the shard recovered"], ["TIME TRAVELER", "every tampered change found"], ["NO INNOCENTS HARMED", "zero false accusations"], ["GHOST HUNTER", "culprit's identity in one piece"], ["FOLLOW THE MONEY", "every accomplice named"]];
+$("#badges").innerHTML = badges.map(([b, s]) => `<div class="badge"><b>◆ ${b}</b><span>${s}</span></div>`).join("");
+$("#runCode").innerHTML = hl(`# deploy the unit and solve a brand-new case
+databricks bundle deploy -t dev
+databricks bundle run dfu_investigation -t dev \\
+    --params seed=42,difficulty=legend
+
+# or locally, no Databricks needed
+pip install -r requirements-dev.txt
+pytest -q              # runs all four cases on local Spark`);
+})();
+</script>
+</body>
+</html>
