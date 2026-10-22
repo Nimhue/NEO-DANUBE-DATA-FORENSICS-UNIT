@@ -6,7 +6,7 @@
 
 `Auto Loader` · `Delta time travel` · `Change Data Feed` · `Entity resolution` · `Unity Catalog` · `Lakeflow expectations` · `Asset Bundles`
 
-[**▶ Open the Forensics Terminal (interactive walkthrough)**](https://YOUR-SITE.netlify.app) · [Case briefings](lore/) · [Notebooks](notebooks/)
+[**▶ Open the Forensics Terminal (interactive walkthrough)**](https://danubeforensicsunit2077.netlify.app/#top) · [Case briefings](lore/) · [Notebooks](notebooks/)
 
 </div>
 
